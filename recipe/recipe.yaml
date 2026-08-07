@@ -34,6 +34,14 @@ outputs:
           CARGO_PROFILE_RELEASE_LTO: fat
         content:
           - |
+            if [[ "${build_platform:-}" != "${target_platform:-}" ]]; then
+              export RUSTFLAGS="-C link-self-contained=no ${RUSTFLAGS:-}"
+            fi
+            # lld is not available in the ppc64le cross-compilation sysroot,
+            # so fall back to the native linker (bfd) for this target only.
+            if [[ "${target_platform:-}" == "linux-ppc64le" ]]; then
+              export RUSTFLAGS="-C link-arg=-fuse-ld=bfd ${RUSTFLAGS:-}"
+            fi
             pushd crates/cli
             cargo-bundle-licenses --format yaml --output THIRDPARTY.yml
             popd
@@ -144,6 +152,11 @@ outputs:
         - ${{ stdlib('c') }}
         - brush
         - cargo-bundle-licenses
+        - if: build_platform != target_platform
+          then:
+            - cross-python_${{ target_platform }}
+            - maturin >=1.0,<2
+            - python
       host:
         - maturin >=1.0,<2.0
         - pip
