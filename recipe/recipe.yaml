@@ -144,6 +144,11 @@ outputs:
         - ${{ stdlib('c') }}
         - brush
         - cargo-bundle-licenses
+        - if: build_platform != target_platform
+          then:
+            - cross-python_${{ target_platform }}
+            - maturin >=1.0,<2
+            - python
       host:
         - maturin >=1.0,<2.0
         - pip
