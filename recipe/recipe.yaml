@@ -34,8 +34,8 @@ outputs:
           CARGO_PROFILE_RELEASE_LTO: fat
         content:
           - |
-            if [[ ${build_platform} != ${target_platform} ]]; then
-              export RUSTFLAGS="-C link-self-contained=no ${RUSTFLAGS}"
+            if [[ "${build_platform:-}" != "${target_platform:-}" ]]; then
+              export RUSTFLAGS="-C link-self-contained=no ${RUSTFLAGS:-}"
             fi
             pushd crates/cli
             cargo-bundle-licenses --format yaml --output THIRDPARTY.yml
