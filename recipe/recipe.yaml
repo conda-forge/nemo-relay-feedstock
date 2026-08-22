@@ -2,6 +2,7 @@ schema_version: 1
 
 context:
   version: "0.7.3"
+  python_min: "3.11"
 
 recipe:
   name: nemo-relay
@@ -135,7 +136,9 @@ outputs:
   - package:
       name: python-nemo-relay
     build:
-      skip: match(python, "<3.11")
+      skip: match(python, "<3.11") or (is_abi3 and not match(python, "3.11.*"))
+      python:
+        version_independent: ${{ is_abi3 }}
       script:
         interpreter: brush
         content: |
@@ -145,6 +148,7 @@ outputs:
           popd
           maturin build --release --manifest-path crates/python/Cargo.toml --out ${SRC_DIR}/dist --interpreter ${PYTHON}
           ${PYTHON} -m pip install ${SRC_DIR}/dist/*.whl --no-deps --no-build-isolation -vv
+
     requirements:
       build:
         - ${{ compiler('rust') }}
@@ -161,14 +165,31 @@ outputs:
         - maturin >=1.0,<2.0
         - pip
         - python
+        - if: is_abi3
+          then: python-abi3
       run:
-        - python
+        - python >=${{ python_min }}
+
     tests:
       - python:
           imports:
             - nemo_relay
           pip_check: true
-          python_version: ${{ python }}
+          python_version:
+            - if: is_abi3
+              then: ${{ python_min }}.*
+            - "*"
+
+      - if: is_abi3
+        then:
+          requirements:
+            run:
+              - abi3audit
+          script:
+            - if: unix
+              then: abi3audit $SP_DIR/nemo_relay/_native.abi3.so -s -v --assume-minimum-abi3 ${{ python_min }}
+              else: abi3audit %SP_DIR%\nemo_relay\_native.pyd -s -v --assume-minimum-abi3 ${{ python_min }}
+
     about:
       summary: Python bindings for NeMo Relay
       license: Apache-2.0
