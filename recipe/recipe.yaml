@@ -176,19 +176,17 @@ outputs:
             - nemo_relay
           pip_check: true
           python_version:
-            - if: is_abi3
-              then: ${{ python_min }}.*
+            - ${{ python_min }}.*
             - "*"
-
-      - if: is_abi3
-        then:
-          requirements:
-            run:
-              - abi3audit
-          script:
-            - if: unix
-              then: abi3audit $SP_DIR/nemo_relay/_native.abi3.so -s -v --assume-minimum-abi3 ${{ python_min }}
-              else: abi3audit %SP_DIR%\nemo_relay\_native.pyd -s -v --assume-minimum-abi3 ${{ python_min }}
+      - script:
+          interpreter: brush
+          content:
+            - abi3audit ${SP_DIR}/nemo_relay/_native${{ ".pyd" if win else ".abi3.so" }} -s -v --assume-minimum-abi3 ${{ python_min }}
+        requirements:
+          build:
+            - brush
+          run:
+            - abi3audit
 
     about:
       summary: Python bindings for NeMo Relay
