@@ -1,7 +1,8 @@
 schema_version: 1
 
 context:
-  version: "0.6.0"
+  version: "0.7.3"
+  python_min: "3.11"
 
 recipe:
   name: nemo-relay
@@ -9,7 +10,7 @@ recipe:
 
 source:
   url: https://github.com/NVIDIA/NeMo-Relay/archive/refs/tags/${{ version }}.tar.gz
-  sha256: 17e16753696a8319835ebfa7a98cd7b8dd2b27f7d893f16c2a385d8d7c13205e
+  sha256: f5393a2bf6777e6e11f539ebdf2301612249fc702ea37316e586f6d898cd7915
 
 build:
   number: 0
@@ -49,7 +50,7 @@ outputs:
             cargo-bundle-licenses --format yaml --output THIRDPARTY.yml
             popd
             cargo auditable build --release --locked -p nemo-relay-cli -p nemo-relay-ffi
-            
+
             # Resolve Cargo target and release directories
             target_root="${CARGO_TARGET_DIR:-target}"
             release_dir="${target_root}/release"
@@ -57,14 +58,14 @@ outputs:
               release_dir="${target_root}/${CARGO_BUILD_TARGET}/release"
             fi
             export NEMO_RELEASE_DIR="${release_dir}"
-          
+
           - if: unix
             then: |
               mkdir -p ${PREFIX}/bin ${PREFIX}/lib ${PREFIX}/include
               cp "${NEMO_RELEASE_DIR}/nemo-relay" ${PREFIX}/bin/
               cp "${NEMO_RELEASE_DIR}"/libnemo_relay_ffi.* ${PREFIX}/lib/
               cp crates/ffi/*.h ${PREFIX}/include/
-          
+
           - if: win
             then: |
               mkdir -p ${PREFIX}/bin/ ${LIBRARY_BIN} ${LIBRARY_LIB} ${LIBRARY_INC}
@@ -135,16 +136,27 @@ outputs:
   - package:
       name: python-nemo-relay
     build:
-      skip: match(python, "<3.11")
+      skip: match(python, "<3.11") or (is_abi3 and not match(python, "3.11.*"))
+      python:
+        version_independent: ${{ is_abi3 }}
       script:
         interpreter: brush
         content: |
+          if [[ "${build_platform:-}" != "${target_platform:-}" ]]; then
+            export RUSTFLAGS="-C link-self-contained=no ${RUSTFLAGS:-}"
+          fi
+          # lld is not available in the ppc64le cross-compilation sysroot,
+          # so fall back to the native linker (bfd) for this target only.
+          if [[ "${target_platform:-}" == "linux-ppc64le" ]]; then
+            export RUSTFLAGS="-C link-arg=-fuse-ld=bfd ${RUSTFLAGS:-}"
+          fi
           export PYO3_PYTHON="${PYTHON}"
           pushd crates/python
           cargo-bundle-licenses --format yaml --output THIRDPARTY.yml
           popd
           maturin build --release --manifest-path crates/python/Cargo.toml --out ${SRC_DIR}/dist --interpreter ${PYTHON}
           ${PYTHON} -m pip install ${SRC_DIR}/dist/*.whl --no-deps --no-build-isolation -vv
+
     requirements:
       build:
         - ${{ compiler('rust') }}
@@ -161,14 +173,29 @@ outputs:
         - maturin >=1.0,<2.0
         - pip
         - python
+        - if: is_abi3
+          then: python-abi3
       run:
-        - python
+        - python >=${{ python_min }}
+
     tests:
       - python:
           imports:
             - nemo_relay
           pip_check: true
-          python_version: ${{ python }}
+          python_version:
+            - ${{ python_min }}.*
+            - "*"
+      - script:
+          interpreter: brush
+          content:
+            - abi3audit ${SP_DIR}/nemo_relay/_native${{ ".pyd" if win else ".abi3.so" }} -s -v --assume-minimum-abi3 ${{ python_min }}
+        requirements:
+          build:
+            - brush
+          run:
+            - abi3audit
+
     about:
       summary: Python bindings for NeMo Relay
       license: Apache-2.0
