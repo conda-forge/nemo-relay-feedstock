@@ -1,7 +1,7 @@
 schema_version: 1
 
 context:
-  version: "0.7.3"
+  version: "0.8.0"
   python_min: "3.11"
 
 recipe:
@@ -10,7 +10,7 @@ recipe:
 
 source:
   url: https://github.com/NVIDIA/NeMo-Relay/archive/refs/tags/${{ version }}.tar.gz
-  sha256: f5393a2bf6777e6e11f539ebdf2301612249fc702ea37316e586f6d898cd7915
+  sha256: 84bfa75125c1345901febc0633709491eaa951faa744435d17204d4e303ffa7b
 
 build:
   number: 0
