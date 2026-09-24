@@ -124,7 +124,6 @@ outputs:
                 - nemo_relay_ffi.dll.lib
           include:
             - nemo_relay.h
-          strict: true
     about:
       summary: C ABI FFI library for NeMo Relay
       license: Apache-2.0
