@@ -157,7 +157,6 @@ outputs:
           # pip on the build host can't validate the manylinux tag on a
           # cross-compiled wheel, so it rejects it. Unpack manually instead.
           if [[ "${build_platform:-}" != "${target_platform:-}" ]]; then
-            ${PYTHON} -m pip install wheel
             ${PYTHON} -m wheel unpack ${SRC_DIR}/dist/*.whl -d ${SRC_DIR}/unpacked
             unpacked_dir="$(find ${SRC_DIR}/unpacked -mindepth 1 -maxdepth 1 -type d | head -n1)"
             cp -r "${unpacked_dir}"/* ${SP_DIR}/
@@ -175,9 +174,9 @@ outputs:
         - if: build_platform != target_platform
           then:
             - cross-python_${{ target_platform }}
-            - crossenv
             - maturin >=1.0,<2
             - python
+            - wheel
       host:
         - maturin >=1.0,<2.0
         - pip
