@@ -1,7 +1,7 @@
 schema_version: 1
 
 context:
-  version: "0.8.4"
+  version: "0.9.2"
 
 recipe:
   name: nemo-relay
@@ -9,7 +9,7 @@ recipe:
 
 source:
   url: https://github.com/NVIDIA/NeMo-Relay/archive/refs/tags/${{ version }}.tar.gz
-  sha256: ecf1404e0535e7695f581970218e3e7f33a03626eefad203f1f93f2c77bbe5f1
+  sha256: 30aaf2dd1b7622dbd026786eeb32a7d3c6b14e48d368efcb6ad88b5b112cb011
 
 build:
   number: 0
@@ -84,7 +84,7 @@ outputs:
       - package_contents:
           bin:
             - nemo-relay
-        strict: true
+          strict: true
       - script:
           - nemo-relay --version
           - nemo-relay --help
@@ -124,7 +124,6 @@ outputs:
                 - nemo_relay_ffi.dll.lib
           include:
             - nemo_relay.h
-        strict: true
     about:
       summary: C ABI FFI library for NeMo Relay
       license: Apache-2.0
@@ -154,7 +153,16 @@ outputs:
           cargo-bundle-licenses --format yaml --output THIRDPARTY.yml
           popd
           maturin build --release --manifest-path crates/python/Cargo.toml --out ${SRC_DIR}/dist --interpreter ${PYTHON}
-          ${PYTHON} -m pip install ${SRC_DIR}/dist/*.whl --no-deps --no-build-isolation -vv
+
+          # pip on the build host can't validate the manylinux tag on a
+          # cross-compiled wheel, so it rejects it. Unpack manually instead.
+          if [[ "${build_platform:-}" != "${target_platform:-}" ]]; then
+            ${PYTHON} -m wheel unpack ${SRC_DIR}/dist/*.whl -d ${SRC_DIR}/unpacked
+            unpacked_dir="$(find ${SRC_DIR}/unpacked -mindepth 1 -maxdepth 1 -type d | head -n1)"
+            cp -r "${unpacked_dir}"/* ${SP_DIR}/
+          else
+            ${PYTHON} -m pip install ${SRC_DIR}/dist/*.whl --no-deps --no-build-isolation -vv
+          fi
 
     requirements:
       build:
@@ -168,6 +176,7 @@ outputs:
             - cross-python_${{ target_platform }}
             - maturin >=1.0,<2
             - python
+            - wheel
       host:
         - maturin >=1.0,<2.0
         - pip
